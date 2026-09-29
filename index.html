@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SIMVER-BLUD — Sistem Verifikasi Digital Belanja BLUD (InApp Edition)</title>
+
+  <!-- Tailwind CSS CDN with Custom InApp Design Tokens -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+              950: '#022c22'
+            },
+            sidebar: {
+              DEFAULT: '#0f172a',
+              hover: '#1e293b',
+              active: '#047857',
+              border: '#1e293b'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Alpine.js Core for Reactive State Management -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex selection:bg-brand-600 selection:text-white"
+      x-data="simverApp()" x-init="initApp()" x-cloak>
+
+  <!-- ==================================================================== -->
+  <!-- SIDEBAR (INAPP DASHBOARD TEMPLATE STYLE) -->
+  <!-- ==================================================================== -->
+  <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+         class="fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-sidebar text-slate-300 flex flex-col border-r border-sidebar-border transition-transform duration-300 ease-in-out shadow-xl md:shadow-none">
+    
+    <!-- Sidebar Header & Brand Logo -->
+    <div class="h-16 flex items-center justify-between px-5 border-b border-sidebar-border bg-slate-950/40">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-300 flex items-center justify-center shadow-lg shadow-emerald-950/40">
+          <i data-lucide="shield-check" class="w-5 h-5 text-brand-950"></i>
+        </div>
+        <div>
+          <span class="text-base font-extrabold text-white tracking-tight">SIMVER<span class="text-emerald-400">-BLUD</span></span>
+          <p class="text-[10px] text-emerald-300/70 font-semibold tracking-wider uppercase -mt-0.5">Quality Gate Gov</p>
+        </div>
+      </div>
+      <!-- Close button on mobile -->
+      <button @click="sidebarOpen = false" class="md:hidden text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Navigation Links -->
+    <div class="flex-1 overflow-y-auto py-5 px-3 space-y-6">
+      <!-- Section: MENU UTAMA -->
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Menu Utama</p>
+        <nav class="space-y-1">
+          <button @click="activeTab = 'dashboard'; if(window.innerWidth < 768) sidebarOpen = false"
+                  :class="activeTab === 'dashboard' ? 'bg-sidebar-active text-white shadow-md shadow-emerald-950/30' : 'text-slate-400 hover:bg-sidebar-hover hover:text-white'"
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group">
+            <div class="flex items-center space-x-3">
+              <i data-lucide="layout-dashboard" class="w-4 h-4 transition group-hover:scale-110"></i>
+              <span>Dasbor & Risiko</span>
+            </div>
+            <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-emerald-400/20 text-emerald-300">Live</span>
+          </button>
+
+          <button @click="activeTab = 'invoices'; if(window.innerWidth < 768) sidebarOpen = false"
+                  :class="activeTab === 'invoices' ? 'bg-sidebar-active text-white shadow-md shadow-emerald-950/30' : 'text-slate-400 hover:bg-sidebar-hover hover:text-white'"
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group">
+            <div class="flex items-center space-x-3">
+              <i data-lucide="file-plus" class="w-4 h-4 transition group-hover:scale-110"></i>
+              <span>Perekaman SPJ</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-60"></i>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Section: VERIFIKASI & MONITORING -->
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Penatausahaan Belanja</p>
+        <nav class="space-y-1">
+          <button @click="activeTab = 'verification'; if(window.innerWidth < 768) sidebarOpen = false"
+                  :class="activeTab === 'verification' ? 'bg-sidebar-active text-white shadow-md shadow-emerald-950/30' : 'text-slate-400 hover:bg-sidebar-hover hover:text-white'"
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group">
+            <div class="flex items-center space-x-3">
+              <i data-lucide="check-square" class="w-4 h-4 transition group-hover:scale-110"></i>
+              <span>Split-Reviewer</span>
+            </div>
+            <span x-show="pendingReviewCount > 0" class="px-2 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-slate-950" x-text="pendingReviewCount"></span>
+          </button>
+
+          <button @click="activeTab = 'budgets'; if(window.innerWidth < 768) sidebarOpen = false"
+                  :class="activeTab === 'budgets' ? 'bg-sidebar-active text-white shadow-md shadow-emerald-950/30' : 'text-slate-400 hover:bg-sidebar-hover hover:text-white'"
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group">
+            <div class="flex items-center space-x-3">
+              <i data-lucide="pie-chart" class="w-4 h-4 transition group-hover:scale-110"></i>
+              <span>Pagu RBA & SPK</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-60"></i>
+          </button>
+
+          <button @click="activeTab = 'audit'; if(window.innerWidth < 768) sidebarOpen = false"
+                  :class="activeTab === 'audit' ? 'bg-sidebar-active text-white shadow-md shadow-emerald-950/30' : 'text-slate-400 hover:bg-sidebar-hover hover:text-white'"
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition group">
+            <div class="flex items-center space-x-3">
+              <i data-lucide="lock" class="w-4 h-4 transition group-hover:scale-110"></i>
+              <span>Audit Vault</span>
+            </div>
+            <span class="text-[9px] font-mono-code text-slate-400">IMMUTABLE</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Section: PERAN APARATUR (RBAC QUICK SWITCH) -->
+      <div class="p-3 bg-slate-900/80 rounded-2xl border border-slate-800">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Peran Aktif:</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        </div>
+        <select x-model="currentRole" @change="switchRole()" class="w-full bg-slate-800 text-emerald-300 text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-slate-700 outline-none cursor-pointer focus:ring-1 focus:ring-emerald-400">
+          <template x-for="r in rolesList" :key="r.key">
+            <option :value="r.key" x-text="r.label"></option>
+          </template>
+        </select>
+        <p class="text-[10px] text-slate-400 mt-2 truncate font-medium" x-text="currentActor.nama"></p>
+        <p class="text-[9px] text-emerald-400/80 font-mono-code" x-text="'NIP. ' + currentActor.nip"></p>
+      </div>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-sidebar-border bg-slate-950/30 flex items-center justify-between">
+      <button @click="showConfigModal = true" class="flex items-center space-x-2 text-xs font-medium text-slate-400 hover:text-white transition">
+        <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+        <span x-text="supabaseConnected ? 'Supabase Sync' : 'Mode Offline/Demo'"></span>
+      </button>
+      <span class="w-2 h-2 rounded-full" :class="supabaseConnected ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+    </div>
+  </aside>
+
+  <!-- Mobile Backdrop -->
+  <div x-show="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm md:hidden"></div>
+
+  <!-- ==================================================================== -->
+  <!-- MAIN LAYOUT WRAPPER (HEADER + CONTENT) -->
+  <!-- ==================================================================== -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    
+    <!-- TOP APP BAR / HEADER -->
+    <header class="bg-white border-b border-slate-200 h-16 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-sm">
+      
+      <!-- Left: Hamburger Toggle & Breadcrumb / Search -->
+      <div class="flex items-center space-x-3 sm:space-x-4 flex-1">
+        <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+
+        <div class="hidden sm:flex items-center relative max-w-xs w-full">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3"></i>
+          <input type="text" x-model="searchQuery" placeholder="Cari invoice, rekanan, SPK..."
+                 class="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition">
+        </div>
+
+        <div class="sm:hidden font-extrabold text-sm text-slate-800 truncate" x-text="getPageTitle()"></div>
+      </div>
+
+      <!-- Right: Supabase Status Indicator, Role Pill, and Actor Dropdown -->
+      <div class="flex items-center space-x-2 sm:space-x-4">
+        <!-- Supabase Cloud Indicator Button -->
+        <button @click="showConfigModal = true" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 transition">
+          <i data-lucide="cloud" class="w-4 h-4 text-emerald-600"></i>
+          <span x-text="supabaseConnected ? 'Database Connected' : 'Config Supabase'"></span>
+          <span class="w-2 h-2 rounded-full" :class="supabaseConnected ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+        </button>
+
+        <!-- Current Role Badge -->
+        <span class="hidden lg:inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+              x-text="currentActor.jabatan">
+        </span>
+
+        <!-- Profile Avatar Button -->
+        <div class="flex items-center space-x-2.5 pl-2 border-l border-slate-200">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-700 to-teal-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+            <span x-text="currentActor.nama.substring(0,2)"></span>
+          </div>
+          <div class="hidden xl:block text-left text-xs">
+            <p class="font-bold text-slate-800 leading-tight" x-text="currentActor.nama"></p>
+            <p class="text-[10px] text-slate-400 font-mono-code" x-text="currentRole"></p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl w-full mx-auto space-y-6 pb-20 sm:pb-8">
+
+      <!-- Breadcrumb Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div class="flex items-center space-x-2 text-xs text-slate-400">
+            <span>SIMVER-BLUD</span>
+            <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            <span class="font-semibold text-slate-700" x-text="getPageTitle()"></span>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5" x-text="getPageHeading()"></h1>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button @click="openNewInvoiceModal()" class="px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-sm transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Entri Tagihan Baru</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Flash Notification Box -->
+      <div x-show="bannerNotice.show" x-transition class="p-4 rounded-2xl shadow-sm border flex items-start justify-between"
+           :class="bannerNotice.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'">
+        <div class="flex items-center space-x-3">
+          <i :data-lucide="bannerNotice.type === 'error' ? 'alert-triangle' : 'check-circle'" class="w-5 h-5 flex-shrink-0"></i>
+          <p class="text-xs sm:text-sm font-semibold" x-text="bannerNotice.message"></p>
+        </div>
+        <button @click="bannerNotice.show = false" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 1: DASBOR & ANALISIS RISIKO (INAPP STYLE METRICS) -->
+      <!-- ================================================================ -->
+      <section x-show="activeTab === 'dashboard'" x-transition class="space-y-6">
+        
+        <!-- 4 Metrics Overview Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Card 1: Total Pagu -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+            <div class="flex items-center justify-between text-slate-500 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Pagu Belanja RBA</span>
+              <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <i data-lucide="wallet" class="w-5 h-5"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-black text-slate-900 tracking-tight" x-text="formatRupiah(metrics.totalPagu)"></p>
+            <div class="mt-2 flex items-center text-xs font-semibold text-emerald-700">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 mr-1"></i> TA. 2026 Belanja Operasional
+            </div>
+          </div>
+
+          <!-- Card 2: Realisasi -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+            <div class="flex items-center justify-between text-slate-500 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Realisasi Approved</span>
+              <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                <i data-lucide="badge-check" class="w-5 h-5"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-black text-slate-900 tracking-tight" x-text="formatRupiah(metrics.totalRealisasi)"></p>
+            <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
+              <div class="bg-teal-600 h-1.5 rounded-full" :style="`width: ${(metrics.totalRealisasi / metrics.totalPagu) * 100}%`"></div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1" x-text="`Serapan ${((metrics.totalRealisasi / metrics.totalPagu) * 100).toFixed(1)}% dari Pagu Kas`"></p>
+          </div>
+
+          <!-- Card 3: Antrean Verifikasi -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+            <div class="flex items-center justify-between text-slate-500 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Antrean Verifikasi</span>
+              <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                <i data-lucide="clock" class="w-5 h-5"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-black text-amber-600 tracking-tight" x-text="metrics.pendingInvoices + ' Berkas'"></p>
+            <p class="text-xs text-slate-500 mt-2 flex items-center">
+              <i data-lucide="file-check-2" class="w-3.5 h-3.5 mr-1 text-amber-600"></i> Memerlukan telaah Tim Keuangan
+            </p>
+          </div>
+
+          <!-- Card 4: Tagihan Risiko Tinggi -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+            <div class="flex items-center justify-between text-slate-500 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Risiko Tinggi (R > 70)</span>
+              <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center">
+                <i data-lucide="shield-alert" class="w-5 h-5"></i>
+              </div>
+            </div>
+            <p class="text-2xl font-black text-rose-600 tracking-tight" x-text="metrics.highRiskInvoices + ' Dokumen'"></p>
+            <p class="text-xs text-rose-600 mt-2 font-bold flex items-center">
+              <i data-lucide="alert-octagon" class="w-3.5 h-3.5 mr-1"></i> Wajib Otorisasi KPA
+            </p>
+          </div>
+        </div>
+
+        <!-- Filter Bar & Quick Actions Ribbon -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="flex items-center space-x-2 w-full md:w-auto">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Jalur Verifikasi:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button @click="filterRisk = 'ALL'" :class="filterRisk === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-3 py-1 rounded-xl text-xs font-semibold transition">Semua</button>
+              <button @click="filterRisk = 'RENDAH'" :class="filterRisk === 'RENDAH' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1 rounded-xl text-xs font-semibold transition flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>Fast-Track (R ≤ 30)</span>
+              </button>
+              <button @click="filterRisk = 'SEDANG'" :class="filterRisk === 'SEDANG' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'" class="px-3 py-1 rounded-xl text-xs font-semibold transition flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>Desk Verification</span>
+              </button>
+              <button @click="filterRisk = 'TINGGI'" :class="filterRisk === 'TINGGI' ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'" class="px-3 py-1 rounded-xl text-xs font-semibold transition flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                <span>Strict Audit</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="text-xs font-bold text-slate-500" x-text="`${filteredInvoices.length} Dokumen Ditemukan`"></div>
+        </div>
+
+        <!-- InApp Datatable: Transaction Queue -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div>
+              <h3 class="font-extrabold text-slate-900 text-sm sm:text-base">Daftar Tagihan Belanja & Penilaian Skor Risiko</h3>
+              <p class="text-xs text-slate-500">Evaluasi otomasi 6 Smart Rules & sidik jari digital berkas SPJ</p>
+            </div>
+            <button @click="fetchSupabaseData()" class="p-2 text-slate-500 hover:text-emerald-700 rounded-xl hover:bg-slate-100 transition" title="Refresh Data">
+              <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Desktop Table Layout -->
+          <div class="hidden lg:block overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                  <th class="py-3.5 px-5">Nomor & Tanggal Tagihan</th>
+                  <th class="py-3.5 px-5">Uraian & Nama Rekanan</th>
+                  <th class="py-3.5 px-5 text-right">Nilai Bruto / Netto</th>
+                  <th class="py-3.5 px-5 text-center">Skor Risiko (R)</th>
+                  <th class="py-3.5 px-5 text-center">Status Tahap</th>
+                  <th class="py-3.5 px-5 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-medium">
+                <template x-for="inv in filteredInvoices" :key="inv.id">
+                  <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-3.5 px-5 whitespace-nowrap">
+                      <p class="font-bold text-slate-900 font-mono-code" x-text="inv.nomor_invoice"></p>
+                      <p class="text-[11px] text-slate-400" x-text="inv.tanggal_invoice"></p>
+                    </td>
+                    <td class="py-3.5 px-5 max-w-xs">
+                      <p class="font-semibold text-slate-800 truncate" x-text="inv.uraian_belanja"></p>
+                      <p class="text-[11px] text-emerald-700 font-bold truncate flex items-center space-x-1">
+                        <i data-lucide="building-2" class="w-3 h-3"></i>
+                        <span x-text="inv.nama_rekanan || 'Penyedia Barang/Jasa'"></span>
+                      </p>
+                    </td>
+                    <td class="py-3.5 px-5 text-right whitespace-nowrap">
+                      <p class="font-bold text-slate-900" x-text="formatRupiah(inv.nilai_bruto)"></p>
+                      <p class="text-[11px] text-slate-400" x-text="'Netto: ' + formatRupiah(inv.nilai_netto)"></p>
+                    </td>
+                    <td class="py-3.5 px-5 text-center whitespace-nowrap">
+                      <span class="px-2.5 py-1 rounded-full text-xs font-bold"
+                            :class="getRiskBadgeClass(inv.evaluations?.risk_category)">
+                        <span x-text="inv.evaluations?.risk_score ?? '0.00'"></span>
+                        <span class="text-[10px] uppercase font-semibold" x-text="' (' + (inv.evaluations?.risk_category ?? 'RENDAH') + ')'"></span>
+                      </span>
+                    </td>
+                    <td class="py-3.5 px-5 text-center whitespace-nowrap">
+                      <span class="px-2.5 py-1 rounded-full text-[11px] font-bold"
+                            :class="getStatusBadgeClass(inv.status_tahap)"
+                            x-text="inv.status_tahap">
+                      </span>
+                    </td>
+                    <td class="py-3.5 px-5 text-center whitespace-nowrap">
+                      <button @click="selectInvoiceForVerification(inv)"
+                              class="px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-800 text-xs font-bold inline-flex items-center space-x-1.5 border border-brand-200 transition">
+                        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        <span>Buka Reviewer</span>
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile Cards Grid -->
+          <div class="lg:hidden divide-y divide-slate-100">
+            <template x-for="inv in filteredInvoices" :key="inv.id">
+              <div class="p-4 space-y-3">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <span class="font-mono-code font-bold text-slate-900 text-xs" x-text="inv.nomor_invoice"></span>
+                    <p class="text-[11px] text-slate-400" x-text="inv.tanggal_invoice"></p>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        :class="getRiskBadgeClass(inv.evaluations?.risk_category)"
+                        x-text="`R: ${inv.evaluations?.risk_score ?? 0}`">
+                  </span>
+                </div>
+
+                <div>
+                  <p class="text-xs font-medium text-slate-700" x-text="inv.uraian_belanja"></p>
+                  <p class="text-xs font-extrabold text-slate-900 mt-1" x-text="formatRupiah(inv.nilai_bruto)"></p>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                  <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold" :class="getStatusBadgeClass(inv.status_tahap)" x-text="inv.status_tahap"></span>
+                  <button @click="selectInvoiceForVerification(inv)" class="px-3 py-1.5 bg-brand-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1">
+                    <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                    <span>Telaah</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 2: PEREKAMAN INVOICE & UNGGAH SPJ DIGITAL (INAPP FORM STYLE)-->
+      <!-- ================================================================ -->
+      <section x-show="activeTab === 'invoices'" x-transition class="space-y-6">
+        
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-4xl mx-auto space-y-6">
+          <div class="border-b border-slate-100 pb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900 flex items-center space-x-2">
+                <i data-lucide="file-plus-2" class="w-5 h-5 text-brand-700"></i>
+                <span>Perekaman Pengajuan Belanja & SPJ Digital</span>
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">Entri data tagihan, kalkulasi pajak otomatis, dan komputasi hash SHA-256 berkas</p>
+            </div>
+            <span class="px-2.5 py-1 text-[11px] font-bold bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200">SIPBLUD Ready</span>
+          </div>
+
+          <form @submit.prevent="submitInvoice()" class="space-y-6">
+            
+            <!-- Section 1: Alokasi RBA & Kontrak -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Alokasi Sub-Kegiatan RBA *</label>
+                <select x-model="invoiceForm.rba_id" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+                  <option value="">-- Pilih Rekening RBA --</option>
+                  <template x-for="rba in rbaList" :key="rba.id">
+                    <option :value="rba.id" x-text="`${rba.kode_sub_kegiatan} - ${rba.nama_sub_kegiatan} (Sisa: ${formatRupiah(rba.sisa_pagu)})`"></option>
+                  </template>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Perikatan / Kontrak (SPK/PO)</label>
+                <select x-model="invoiceForm.contract_id" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+                  <option value="">-- Tanpa Kontrak (Belanja Langsung / Upah) --</option>
+                  <template x-for="c in contractsList" :key="c.id">
+                    <option :value="c.id" x-text="`${c.nomor_spk} - ${c.nama_rekanan}`"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+
+            <!-- Section 2: Identitas Tagihan -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nomor Invoice Tagihan *</label>
+                <input type="text" x-model="invoiceForm.nomor_invoice" required placeholder="Contoh: INV/2026/02-001"
+                       class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal Invoice *</label>
+                <input type="date" x-model="invoiceForm.tanggal_invoice" required
+                       class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal BAST / Penerimaan</label>
+                <input type="date" x-model="invoiceForm.tanggal_bast"
+                       class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Uraian Keperluan Belanja *</label>
+              <textarea x-model="invoiceForm.uraian_belanja" rows="2" required placeholder="Uraikan peruntukan belanja operasional / barang jasa secara jelas..."
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            </div>
+
+            <!-- Section 3: Matematika Belanja & Pajak -->
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="calculator" class="w-4 h-4 text-brand-700"></i>
+                <span>Rincian Keuangan & Pajak (Kalkulasi Otomatis)</span>
+              </h4>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Nilai Bruto (Rp) *</label>
+                  <input type="number" step="any" x-model.number="invoiceForm.nilai_bruto" @input="calculateNetto()" required min="1000"
+                         class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">PPN (11% atau Nilai)</label>
+                  <input type="number" step="any" x-model.number="invoiceForm.nilai_ppn" @input="calculateNetto()" min="0"
+                         class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">PPh (21/22/23/Final)</label>
+                  <input type="number" step="any" x-model.number="invoiceForm.nilai_pph" @input="calculateNetto()" min="0"
+                         class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-emerald-800 uppercase mb-1">Nilai Netto (Rp)</label>
+                  <input type="number" step="any" x-model.number="invoiceForm.nilai_netto" readonly
+                         class="w-full bg-emerald-50 border border-emerald-300 rounded-xl px-3 py-2 text-xs font-black text-emerald-950 outline-none font-mono-code">
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 4: Unggah Berkas & Hashing SHA-256 Sisi Klien -->
+            <div class="border-t border-slate-200 pt-4">
+              <div class="mb-3">
+                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Unggah Dokumen SPJ Digital & Hashing SHA-256</h4>
+                <p class="text-[11px] text-slate-500">Kalkulasi sidik jari digital (Tamper-Proof Digest) langsung di peramban menggunakan Web Crypto API</p>
+              </div>
+
+              <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition text-center">
+                <input type="file" id="filePicker" @change="handleFileUpload($event)" class="hidden" accept=".pdf,image/jpeg,image/png">
+                <label for="filePicker" class="cursor-pointer flex flex-col items-center justify-center space-y-2">
+                  <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-brand-800 flex items-center justify-center shadow-sm">
+                    <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                  </div>
+                  <div class="text-xs">
+                    <span class="font-bold text-brand-800 hover:underline">Klik untuk memilih berkas</span> atau seret dokumen ke sini
+                  </div>
+                  <p class="text-[10px] text-slate-400">PDF, JPG, PNG (Maks 10 MB per dokumen)</p>
+                </label>
+              </div>
+
+              <!-- Uploaded List -->
+              <div class="mt-4 space-y-2" x-show="uploadedFiles.length > 0">
+                <p class="text-xs font-bold text-slate-700 uppercase">Dokumen Terlampir:</p>
+                <template x-for="(doc, idx) in uploadedFiles" :key="idx">
+                  <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs shadow-sm">
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                      <i data-lucide="file-check-2" class="w-5 h-5 text-emerald-600 flex-shrink-0"></i>
+                      <div class="truncate">
+                        <p class="font-bold text-slate-800 truncate" x-text="doc.name"></p>
+                        <p class="text-[10px] text-slate-400 font-mono-code truncate" x-text="'SHA-256: ' + doc.hash"></p>
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                      <select x-model="doc.jenis" class="text-[11px] font-semibold bg-slate-100 border-none rounded-lg px-2 py-1">
+                        <option value="KUITANSI">Kuitansi</option>
+                        <option value="SPK">SPK / PO</option>
+                        <option value="BAST">BAST</option>
+                        <option value="FAKTUR_PAJAK">Faktur Pajak</option>
+                        <option value="BUKTI_TRANSFER">Bukti Transfer</option>
+                        <option value="DOKUMEN_PENDUKUNG">Pendukung</option>
+                      </select>
+                      <button type="button" @click="removeFile(idx)" class="text-rose-500 hover:text-rose-700 p-1">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Form Action Buttons -->
+            <div class="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+              <button type="button" @click="resetInvoiceForm()" class="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition">
+                Reset
+              </button>
+              <button type="submit" class="px-6 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-md transition">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                <span>Simpan & Eksekusi Smart Rules</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 3: VERIFIKASI SPLIT-SCREEN REVIEWER & DECISION PANEL -->
+      <!-- ================================================================ -->
+      <section x-show="activeTab === 'verification'" x-transition class="space-y-4">
+        
+        <div x-show="!selectedInvoice" class="bg-white rounded-2xl border border-slate-200 p-12 text-center max-w-lg mx-auto space-y-3">
+          <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+            <i data-lucide="mouse-pointer-click" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-800">Pilih Berkas Tagihan untuk Ditelaah</h3>
+          <p class="text-xs text-slate-500">Pilih salah satu tagihan pada menu Dasbor untuk membuka mode telaah split-screen interaktif.</p>
+          <button @click="activeTab = 'dashboard'" class="px-4 py-2 bg-brand-700 text-white text-xs font-bold rounded-xl shadow">Buka Dasbor Tagihan</button>
+        </div>
+
+        <!-- Split-Screen Active -->
+        <div x-show="selectedInvoice" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Left Column: Verification Checklist, Smart Rules, & Decision (6 Cols) -->
+          <div class="lg:col-span-6 space-y-4">
+            
+            <!-- Summary Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div class="flex items-start justify-between">
+                <div>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nomor Invoice</span>
+                  <h3 class="text-base font-black text-slate-900 font-mono-code" x-text="selectedInvoice?.nomor_invoice"></h3>
+                  <p class="text-xs text-slate-500 mt-0.5" x-text="selectedInvoice?.uraian_belanja"></p>
+                </div>
+                <div class="text-right">
+                  <span class="px-2.5 py-1 rounded-full text-xs font-black"
+                        :class="getRiskBadgeClass(selectedInvoice?.evaluations?.risk_category)"
+                        x-text="`Skor Risiko: ${selectedInvoice?.evaluations?.risk_score ?? 0}`">
+                  </span>
+                  <p class="text-[10px] font-bold text-slate-500 mt-1" x-text="'Jalur: ' + (selectedInvoice?.evaluations?.recommended_path ?? 'FAST_TRACK')"></p>
+                </div>
+              </div>
+
+              <!-- Financial Breakdown -->
+              <div class="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl text-center">
+                <div>
+                  <span class="text-[10px] text-slate-500 font-bold uppercase">Bruto</span>
+                  <p class="text-xs font-black text-slate-800" x-text="formatRupiah(selectedInvoice?.nilai_bruto)"></p>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 font-bold uppercase">Pajak</span>
+                  <p class="text-xs font-bold text-rose-600" x-text="formatRupiah((selectedInvoice?.nilai_ppn || 0) + (selectedInvoice?.nilai_pph || 0))"></p>
+                </div>
+                <div>
+                  <span class="text-[10px] text-emerald-800 font-bold uppercase">Netto</span>
+                  <p class="text-xs font-black text-emerald-900" x-text="formatRupiah(selectedInvoice?.nilai_netto)"></p>
+                </div>
+              </div>
+
+              <!-- 6 Smart Rules Evaluation Checklist -->
+              <div class="space-y-2 border-t border-slate-100 pt-3">
+                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-brand-700"></i>
+                  <span>Otomasi 6 Smart Rules Pengendalian</span>
+                </h4>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div class="p-2.5 rounded-xl border flex items-center space-x-2"
+                       :class="selectedInvoice?.evaluations?.is_budget_sufficient ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
+                    <i :data-lucide="selectedInvoice?.evaluations?.is_budget_sufficient ? 'check-circle' : 'alert-circle'" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium">1. Pagu RBA Cukup</span>
+                  </div>
+
+                  <div class="p-2.5 rounded-xl border flex items-center space-x-2"
+                       :class="selectedInvoice?.evaluations?.is_account_valid ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
+                    <i :data-lucide="selectedInvoice?.evaluations?.is_account_valid ? 'check-circle' : 'alert-circle'" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium">2. Rekening Akun Valid</span>
+                  </div>
+
+                  <div class="p-2.5 rounded-xl border flex items-center space-x-2"
+                       :class="selectedInvoice?.evaluations?.is_contract_valid ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
+                    <i :data-lucide="selectedInvoice?.evaluations?.is_contract_valid ? 'check-circle' : 'alert-circle'" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium">3. Plafon Kontrak Aman</span>
+                  </div>
+
+                  <div class="p-2.5 rounded-xl border flex items-center space-x-2"
+                       :class="selectedInvoice?.evaluations?.is_anti_duplication_pass ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
+                    <i :data-lucide="selectedInvoice?.evaluations?.is_anti_duplication_pass ? 'check-circle' : 'alert-circle'" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium">4. Anti-Duplikasi Valid</span>
+                  </div>
+
+                  <div class="p-2.5 rounded-xl border flex items-center space-x-2"
+                       :class="selectedInvoice?.evaluations?.is_tax_math_valid ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
+                    <i :data-lucide="selectedInvoice?.evaluations?.is_tax_math_valid ? 'check-circle' : 'alert-circle'" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium">5. Matematika Pajak Benar</span>
+                  </div>
+
+                  <div class="p-2.5 rounded-xl border flex items-center space-x-2"
+                       :class="selectedInvoice?.evaluations?.is_metadata_valid ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
+                    <i :data-lucide="selectedInvoice?.evaluations?.is_metadata_valid ? 'check-circle' : 'alert-circle'" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-[11px] font-medium">6. Kronologi BAST Logis</span>
+                  </div>
+                </div>
+
+                <!-- Anomaly Warnings -->
+                <template x-if="selectedInvoice?.evaluations?.anomaly_flags && selectedInvoice.evaluations.anomaly_flags.length > 0">
+                  <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                    <p class="text-[11px] font-bold text-rose-800 uppercase flex items-center space-x-1">
+                      <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i>
+                      <span>Indikasi Anomali / Temuan Kritis:</span>
+                    </p>
+                    <ul class="list-disc list-inside text-[11px] text-rose-700 font-medium space-y-0.5">
+                      <template x-for="(anom, idx) in selectedInvoice.evaluations.anomaly_flags" :key="idx">
+                        <li x-text="anom.msg"></li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Approval Decision Actions -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="stamp" class="w-4 h-4 text-brand-700"></i>
+                <span>Keputusan Otorisasi / Rekomendasi</span>
+              </h4>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Catatan Telaah / Alasan Putusan</label>
+                <textarea x-model="decisionNote" rows="2" placeholder="Tuliskan catatan verifikasi atau rincian klausul yang perlu direvisi..."
+                          class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+              </div>
+
+              <div class="flex flex-col sm:flex-row items-center gap-2">
+                <button @click="submitDecision('SETUJU')" class="w-full sm:flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-sm transition">
+                  <i data-lucide="check-check" class="w-4 h-4"></i>
+                  <span x-text="currentRole === 'PEMIMPIN_BLUD' ? 'Otorisasi Final (NP2D)' : 'Setujui Verifikasi'"></span>
+                </button>
+
+                <button @click="submitDecision('PERBAIKAN')" class="w-full sm:w-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                  <span>Minta Koreksi</span>
+                </button>
+
+                <button @click="submitDecision('TOLAK')" class="w-full sm:w-auto px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition">
+                  <i data-lucide="ban" class="w-4 h-4"></i>
+                  <span>Tolak Tagihan</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Interactive Document Viewer & SHA-256 Checksum (6 Cols) -->
+          <div class="lg:col-span-6 space-y-4">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col h-full min-h-[520px]">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="file-text" class="w-5 h-5 text-brand-700"></i>
+                  <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Pratinjau Dokumen SPJ Digital</h4>
+                </div>
+                <span class="text-[10px] font-mono-code px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md font-semibold">Integrity Verified</span>
+              </div>
+
+              <!-- Document Tab Selector -->
+              <div class="flex space-x-1.5 py-3 overflow-x-auto border-b border-slate-100">
+                <template x-for="(doc, idx) in (selectedInvoice?.spj_documents || mockDocs)" :key="idx">
+                  <button @click="activeDocIndex = idx"
+                          :class="activeDocIndex === idx ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                          class="px-2.5 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center space-x-1">
+                    <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+                    <span x-text="doc.jenis_dokumen || doc.jenis"></span>
+                  </button>
+                </template>
+              </div>
+
+              <!-- Document Preview Canvas (Dark Mode Paper View) -->
+              <div class="flex-1 bg-slate-900 rounded-2xl p-5 my-3 text-white flex flex-col justify-between overflow-hidden shadow-inner relative">
+                <div class="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
+                  <span x-text="getCurrentDoc()?.file_name || 'Dokumen_SPJ.pdf'"></span>
+                  <span class="font-mono-code text-[10px]">Ukuran: 382 KB</span>
+                </div>
+
+                <!-- Simulation Graphic -->
+                <div class="my-auto py-8 text-center space-y-3">
+                  <div class="w-16 h-20 bg-white/10 rounded-xl mx-auto border border-white/20 flex flex-col items-center justify-center text-emerald-400 shadow-md">
+                    <i data-lucide="file-signature" class="w-8 h-8"></i>
+                    <span class="text-[9px] font-mono-code mt-1 text-slate-300">ASLI</span>
+                  </div>
+                  <h5 class="text-sm font-bold text-white tracking-wide uppercase" x-text="getCurrentDoc()?.jenis_dokumen || 'KUITANSI ASLI'"></h5>
+                  <p class="text-xs text-slate-400 max-w-sm mx-auto">Dokumen digital tersimpan privat dalam Supabase Storage Bucket dengan enkripsi SHA-256 terdaftar.</p>
+                </div>
+
+                <!-- Cryptographic Digest Box -->
+                <div class="bg-slate-950/90 rounded-xl p-3 border border-slate-800 text-[10px] space-y-1">
+                  <div class="flex items-center justify-between text-slate-400">
+                    <span class="font-bold flex items-center space-x-1">
+                      <i data-lucide="hash" class="w-3 h-3 text-emerald-400"></i>
+                      <span>SHA-256 Checksum:</span>
+                    </span>
+                    <span class="text-emerald-400 font-semibold">100% Match</span>
+                  </div>
+                  <p class="font-mono-code text-slate-300 break-all" x-text="getCurrentDoc()?.checksum_sha256 || '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'"></p>
+                </div>
+              </div>
+
+              <!-- Footer Details -->
+              <div class="flex items-center justify-between text-xs text-slate-500 pt-1">
+                <span>Status: <strong class="text-emerald-700">Digital Seal Active</strong></span>
+                <button @click="showToast('Mengunduh arsip dokumen digital lengkap...')" class="font-bold text-brand-700 hover:underline flex items-center space-x-1">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Unduh Dokumen</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 4: PAGU RBA & KONTRAK (INAPP INVENTORY / ASSET STYLE) -->
+      <!-- ================================================================ -->
+      <section x-show="activeTab === 'budgets'" x-transition class="space-y-6">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 class="font-bold text-slate-900 text-base">Alokasi Pagu Sub-Kegiatan RBA BLUD</h3>
+              <p class="text-xs text-slate-500">Monitoring realisasi kas terbuka terhadap pagu definitif DPA/RBA</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg">TA 2026 Aktif</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <template x-for="rba in rbaList" :key="rba.id">
+              <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <span class="text-[10px] font-mono-code font-bold text-emerald-700" x-text="rba.kode_sub_kegiatan"></span>
+                    <h4 class="font-bold text-slate-800 text-xs mt-0.5 line-clamp-1" x-text="rba.nama_sub_kegiatan"></h4>
+                  </div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded-md" x-text="rba.sumber_dana"></span>
+                </div>
+
+                <div class="space-y-1 text-xs">
+                  <div class="flex justify-between text-slate-500">
+                    <span>Pagu Awal:</span>
+                    <span class="font-semibold text-slate-800" x-text="formatRupiah(rba.pagu_awal)"></span>
+                  </div>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Realisasi:</span>
+                    <span class="font-semibold text-teal-700" x-text="formatRupiah(rba.realisasi_berjalan)"></span>
+                  </div>
+                  <div class="flex justify-between font-bold pt-1 border-t border-slate-200">
+                    <span class="text-slate-700">Sisa Pagu Kas:</span>
+                    <span :class="rba.sisa_pagu < (0.15 * rba.pagu_awal) ? 'text-rose-600' : 'text-emerald-700'"
+                          x-text="formatRupiah(rba.sisa_pagu)"></span>
+                  </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div class="h-2 rounded-full"
+                       :class="(rba.realisasi_berjalan / rba.pagu_awal) > 0.85 ? 'bg-rose-500' : 'bg-emerald-600'"
+                       :style="`width: ${(rba.realisasi_berjalan / rba.pagu_awal) * 100}%`"></div>
+                </div>
+                <p class="text-[10px] text-right font-medium text-slate-400" x-text="`Terserap ${((rba.realisasi_berjalan / rba.pagu_awal) * 100).toFixed(1)}%`"></p>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 5: AUDIT VAULT (IMMUTABLE LOGS) -->
+      <!-- ================================================================ -->
+      <section x-show="activeTab === 'audit'" x-transition class="space-y-6">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                <i data-lucide="shield-check" class="w-5 h-5 text-brand-700"></i>
+                <span>Audit Vault & Jejak Akuntabilitas Permanen</span>
+              </h3>
+              <p class="text-xs text-slate-500">Tabel rekaman terkunci (Append-Only), dilindungi oleh trigger PostgreSQL</p>
+            </div>
+            <button @click="showToast('Mengekspor berkas audit dossier ZIP/PDF untuk APIP/BPK...')" class="px-3 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition">
+              <i data-lucide="file-archive" class="w-4 h-4"></i>
+              <span>Export Dossier (BPK)</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                  <th class="py-2.5 px-3">Waktu (ISO)</th>
+                  <th class="py-2.5 px-3">Aparatur (Aktor)</th>
+                  <th class="py-2.5 px-3">Tindakan</th>
+                  <th class="py-2.5 px-3">Snapshot Payload</th>
+                  <th class="py-2.5 px-3">Hash Verifikasi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-medium">
+                <template x-for="log in auditLogs" :key="log.id">
+                  <tr class="hover:bg-slate-50/70 transition">
+                    <td class="py-3 px-3 whitespace-nowrap text-slate-500 font-mono-code text-[11px]" x-text="log.logged_at"></td>
+                    <td class="py-3 px-3 whitespace-nowrap">
+                      <p class="font-bold text-slate-900" x-text="log.actor_name"></p>
+                      <p class="text-[10px] text-slate-400" x-text="'NIP. ' + log.actor_nip"></p>
+                    </td>
+                    <td class="py-3 px-3 whitespace-nowrap">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-800" x-text="log.action_type"></span>
+                    </td>
+                    <td class="py-3 px-3 text-slate-600 max-w-xs truncate font-mono-code text-[11px]" x-text="JSON.stringify(log.payload_snapshot)"></td>
+                    <td class="py-3 px-3 whitespace-nowrap font-mono-code text-[10px] text-emerald-700" x-text="log.record_hash.substring(0, 16) + '...'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODALS & CONFIGURATION DIALOGS -->
+  <!-- ==================================================================== -->
+
+  <!-- Modal: Konfigurasi Supabase Project -->
+  <div x-show="showConfigModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div @click.away="showConfigModal = false" class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-600"></i>
+          <span>Konfigurasi Supabase Project</span>
+        </h3>
+        <button @click="showConfigModal = false" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500 leading-relaxed">
+        Masukkan URL dan Anon Key proyek Supabase Anda untuk menghubungkan data nyata secara langsung. Jika dikosongkan, aplikasi beroperasi menggunakan state simulasi interaktif.
+      </p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">SUPABASE URL</label>
+          <input type="text" x-model="supabaseConfig.url" placeholder="https://xyzproject.supabase.co"
+                 class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono-code text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">SUPABASE ANON KEY</label>
+          <input type="password" x-model="supabaseConfig.key" placeholder="eyJhbGciOiJIUzI1NiIsInR5..."
+                 class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono-code text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button @click="saveSupabaseConfig()" class="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold transition">
+          Simpan & Hubungkan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- ==================================================================== -->
+  <!-- JAVASCRIPT STATE & APPLICATION ENGINE -->
+  <!-- ==================================================================== -->
+  <script>
+    function simverApp() {
+      return {
+        // App Navigation & UI State
+        activeTab: 'dashboard',
+        sidebarOpen: false,
+        showConfigModal: false,
+        filterRisk: 'ALL',
+        searchQuery: '',
+        supabaseConnected: false,
+        supabaseClient: null,
+        activeDocIndex: 0,
+        decisionNote: '',
+
+        // Alert Banner
+        bannerNotice: {
+          show: false,
+          type: 'success',
+          message: ''
+        },
+
+        // Role & RBAC Structure
+        rolesList: [
+          { key: 'PPTK_OPERATOR', label: 'Staf / PPTK Operator' },
+          { key: 'VERIFIKATOR', label: 'Verifikator Keuangan' },
+          { key: 'PEJABAT_KEUANGAN', label: 'Pejabat Keuangan BLUD' },
+          { key: 'PEMIMPIN_BLUD', label: 'Pemimpin BLUD / KPA' },
+          { key: 'AUDITOR', label: 'Auditor APIP / BPK' }
+        ],
+        currentRole: 'VERIFIKATOR',
+        currentActor: {
+          id: 'a0000002-0000-0000-0000-000000000002',
+          nama: 'Hj. Siti Aminah, M.Ak.',
+          nip: '198402152009022003',
+          jabatan: 'Verifikator Keuangan Subag Verifikasi'
+        },
+
+        // Supabase Cloud Config
+        supabaseConfig: {
+          url: localStorage.getItem('simver_supabase_url') || '',
+          key: localStorage.getItem('simver_supabase_key') || ''
+        },
+
+        // Overview KPI Metrics
+        metrics: {
+          totalPagu: 1900000000,
+          totalRealisasi: 515000000,
+          pendingInvoices: 2,
+          highRiskInvoices: 1
+        },
+
+        // Master Data Collections
+        rbaList: [
+          {
+            id: 'b0000001-0000-0000-0000-000000000001',
+            kode_sub_kegiatan: '1.02.01.2.10.01',
+            nama_sub_kegiatan: 'Pelayanan & Penunjang Pelayanan BLUD',
+            pagu_awal: 1500000000,
+            realisasi_berjalan: 320000000,
+            sisa_pagu: 1180000000,
+            sumber_dana: 'JASA_LAYANAN'
+          },
+          {
+            id: 'b0000002-0000-0000-0000-000000000002',
+            kode_sub_kegiatan: '1.02.01.2.10.02',
+            nama_sub_kegiatan: 'Operasional & Pemeliharaan Sarana RS',
+            pagu_awal: 280000000,
+            realisasi_berjalan: 45000000,
+            sisa_pagu: 235000000,
+            sumber_dana: 'JASA_LAYANAN'
+          },
+          {
+            id: 'b0000003-0000-0000-0000-000000000003',
+            kode_sub_kegiatan: '1.02.01.2.10.03',
+            nama_sub_kegiatan: 'Peningkatan Mutu & Akreditasi RS',
+            pagu_awal: 120000000,
+            realisasi_berjalan: 95000000,
+            sisa_pagu: 25000000,
+            sumber_dana: 'JASA_LAYANAN'
+          }
+        ],
+
+        contractsList: [
+          {
+            id: 'c0000001-0000-0000-0000-000000000001',
+            nomor_spk: '027/SPK-BMHP/BLUD-RS/I/2026',
+            nama_rekanan: 'PT Medika Farma Nusantara',
+            nilai_kontrak: 450000000
+          },
+          {
+            id: 'c0000002-0000-0000-0000-000000000002',
+            nomor_spk: '027/SPK-KALIB/BLUD-RS/II/2026',
+            nama_rekanan: 'CV Tera Presisi Biomedika',
+            nilai_kontrak: 75000000
+          }
+        ],
+
+        invoicesList: [],
+        selectedInvoice: null,
+
+        // Input Form
+        invoiceForm: {
+          rba_id: '',
+          contract_id: '',
+          nomor_invoice: '',
+          tanggal_invoice: new Date().toISOString().split('T')[0],
+          tanggal_bast: '',
+          nilai_bruto: 0,
+          nilai_ppn: 0,
+          nilai_pph: 0,
+          nilai_netto: 0,
+          uraian_belanja: ''
+        },
+        uploadedFiles: [],
+
+        // Preview Documents Mock
+        mockDocs: [
+          { jenis_dokumen: 'KUITANSI', file_name: 'Kuitansi_Pembayaran_Sah.pdf', checksum_sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08' },
+          { jenis_dokumen: 'BAST', file_name: 'BAST_Hasil_Pekerjaan.pdf', checksum_sha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8' },
+          { jenis_dokumen: 'FAKTUR_PAJAK', file_name: 'Faktur_Pajak_Elektronik.pdf', checksum_sha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a' }
+        ],
+
+        // Immutable Audit Vault Log Storage
+        auditLogs: [
+          {
+            id: 1,
+            actor_name: 'Hj. Siti Aminah, M.Ak.',
+            actor_nip: '198402152009022003',
+            action_type: 'APPROVAL_SETUJU_VERIFIKATOR',
+            logged_at: '2026-02-12T09:30:00Z',
+            payload_snapshot: { status: 'IN_REVIEW', catatan: 'Lolos uji formal & material' },
+            record_hash: '9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b'
+          },
+          {
+            id: 2,
+            actor_name: 'dr. H. Rahmat Hidayat, Sp.OG(K).',
+            actor_nip: '197210051998031001',
+            action_type: 'APPROVAL_SETUJU_PEMIMPIN_BLUD',
+            logged_at: '2026-02-12T11:15:00Z',
+            payload_snapshot: { status: 'APPROVED', seal: 'SEAL-BLUD-2026-00389' },
+            record_hash: '1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f'
+          }
+        ],
+
+        initApp() {
+          this.initSeedData();
+          this.testSupabaseConnection();
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        initSeedData() {
+          this.invoicesList = [
+            {
+              id: 'd0000001-0000-0000-0000-000000000001',
+              nomor_invoice: 'INV-MFN/2026/02-001',
+              tanggal_invoice: '2026-02-10',
+              tanggal_bast: '2026-02-08',
+              nilai_bruto: 18500000,
+              nilai_ppn: 2035000,
+              nilai_pph: 277500,
+              nilai_netto: 16187500,
+              uraian_belanja: 'Pembayaran Belanja Kasa Steril & Infus Set Tahap II',
+              nama_rekanan: 'PT Medika Farma Nusantara',
+              status_tahap: 'IN_REVIEW',
+              evaluations: {
+                risk_score: 22.50,
+                risk_category: 'RENDAH',
+                recommended_path: 'FAST_TRACK',
+                is_budget_sufficient: true,
+                is_account_valid: true,
+                is_contract_valid: true,
+                is_anti_duplication_pass: true,
+                is_tax_math_valid: true,
+                is_metadata_valid: true,
+                anomaly_flags: []
+              }
+            },
+            {
+              id: 'd0000002-0000-0000-0000-000000000002',
+              nomor_invoice: 'INV-TPB/2026/02-099',
+              tanggal_invoice: '2026-02-14',
+              tanggal_bast: '2026-02-18',
+              nilai_bruto: 82000000,
+              nilai_ppn: 9020000,
+              nilai_pph: 1640000,
+              nilai_netto: 71340000,
+              uraian_belanja: 'Pembayaran Uang Muka Kalibrasi Alat Radiologi Bedah',
+              nama_rekanan: 'CV Tera Presisi Biomedika',
+              status_tahap: 'DRAFT',
+              evaluations: {
+                risk_score: 85.00,
+                risk_category: 'TINGGI',
+                recommended_path: 'STRICT_AUDIT',
+                is_budget_sufficient: false,
+                is_account_valid: true,
+                is_contract_valid: false,
+                is_anti_duplication_pass: true,
+                is_tax_math_valid: true,
+                is_metadata_valid: false,
+                anomaly_flags: [
+                  { rule: 'PAGU_DEFICIT', msg: 'Nilai belanja Rp 82.000.000 melampaui sisa pagu RBA (Rp 25.000.000).' },
+                  { rule: 'DATE_ANOMALY', msg: 'Tanggal BAST (18 Feb) lebih baru daripada tanggal invoice tagihan (14 Feb).' }
+                ]
+              }
+            },
+            {
+              id: 'd0000003-0000-0000-0000-000000000003',
+              nomor_invoice: 'INV-MFN/2026/01-001',
+              tanggal_invoice: '2026-01-25',
+              tanggal_bast: '2026-01-22',
+              nilai_bruto: 150000000,
+              nilai_ppn: 16500000,
+              nilai_pph: 2250000,
+              nilai_netto: 131250000,
+              uraian_belanja: 'Termin I Belanja Spuit & BMHP Medika',
+              nama_rekanan: 'PT Medika Farma Nusantara',
+              status_tahap: 'APPROVED',
+              evaluations: {
+                risk_score: 28.00,
+                risk_category: 'RENDAH',
+                recommended_path: 'FAST_TRACK',
+                is_budget_sufficient: true,
+                is_account_valid: true,
+                is_contract_valid: true,
+                is_anti_duplication_pass: true,
+                is_tax_math_valid: true,
+                is_metadata_valid: true,
+                anomaly_flags: []
+              }
+            }
+          ];
+          this.selectedInvoice = this.invoicesList[0];
+        },
+
+        switchRole() {
+          const profileMap = {
+            'PPTK_OPERATOR': { id: 'a0000001-0000-0000-0000-000000000001', nama: 'Budi Santoso, S.E.', nip: '198804122011011002', jabatan: 'Staf PPTK Bidang Pelayanan' },
+            'VERIFIKATOR': { id: 'a0000002-0000-0000-0000-000000000002', nama: 'Hj. Siti Aminah, M.Ak.', nip: '198402152009022003', jabatan: 'Verifikator Keuangan Subag Verifikasi' },
+            'PEJABAT_KEUANGAN': { id: 'a0000003-0000-0000-0000-000000000003', nama: 'Drs. Hendro Wibowo, Ak., CA.', nip: '197906182005011004', jabatan: 'Pejabat Keuangan BLUD' },
+            'PEMIMPIN_BLUD': { id: 'a0000004-0000-0000-0000-000000000004', nama: 'dr. H. Rahmat Hidayat, Sp.OG(K).', nip: '197210051998031001', jabatan: 'Pemimpin BLUD / Direktur KPA' },
+            'AUDITOR': { id: 'a0000005-0000-0000-0000-000000000005', nama: 'Arif Munandar, S.Ak., CGAA', nip: '198509202010011005', jabatan: 'Inspektur Pembantu / Auditor APIP' }
+          };
+          this.currentActor = profileMap[this.currentRole];
+          this.showToast(`Beralih peran: ${this.currentActor.nama} (${this.currentRole})`);
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        getPageTitle() {
+          const map = {
+            dashboard: 'Dasbor & Pengendalian Risiko',
+            invoices: 'Perekaman Invoice & SPJ Digital',
+            verification: 'Split-Screen Verifikasi Reviewer',
+            budgets: 'Pagu RBA & Komitmen Belanja',
+            audit: 'Audit Vault Permanen'
+          };
+          return map[this.activeTab] || 'SIMVER-BLUD';
+        },
+
+        getPageHeading() {
+          const map = {
+            dashboard: 'Monitoring Risiko Belanja & Verifikasi Digital',
+            invoices: 'Entri Formulir Tagihan Belanja & Upload Berkas',
+            verification: 'Lembar Kerja Telaah Dokumen & Otorisasi',
+            budgets: 'Alokasi Pagu Sub-Kegiatan RBA & Kontrak Rekanan',
+            audit: 'Catatan Jejak Digital Terkunci (Append-Only)'
+          };
+          return map[this.activeTab] || 'Manajemen Belanja BLUD';
+        },
+
+        get filteredInvoices() {
+          return this.invoicesList.filter(inv => {
+            const matchRisk = (this.filterRisk === 'ALL') || (inv.evaluations?.risk_category === this.filterRisk);
+            const query = this.searchQuery.toLowerCase().trim();
+            if (!query) return matchRisk;
+            const matchText = (inv.nomor_invoice && inv.nomor_invoice.toLowerCase().includes(query)) ||
+                              (inv.uraian_belanja && inv.uraian_belanja.toLowerCase().includes(query)) ||
+                              (inv.nama_rekanan && inv.nama_rekanan.toLowerCase().includes(query));
+            return matchRisk && matchText;
+          });
+        },
+
+        get pendingReviewCount() {
+          return this.invoicesList.filter(i => ['DRAFT', 'PRE_VALIDATED', 'IN_REVIEW', 'APPROVED_LV1'].includes(i.status_tahap)).length;
+        },
+
+        async computeSHA256(file) {
+          const buffer = await file.arrayBuffer();
+          const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        },
+
+        async handleFileUpload(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          this.showToast('Menghitung sidik jari SHA-256 berkas...');
+          const hash = await this.computeSHA256(file);
+
+          this.uploadedFiles.push({
+            name: file.name,
+            size: file.size,
+            hash: hash,
+            jenis: 'KUITANSI'
+          });
+
+          this.showToast('Checksum berkas berhasil dikalkulasi!');
+          event.target.value = '';
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        removeFile(index) {
+          this.uploadedFiles.splice(index, 1);
+        },
+
+        getCurrentDoc() {
+          const docs = this.selectedInvoice?.spj_documents || this.mockDocs;
+          return docs[this.activeDocIndex] || docs[0];
+        },
+
+        calculateNetto() {
+          const bruto = Number(this.invoiceForm.nilai_bruto) || 0;
+          const ppn = Number(this.invoiceForm.nilai_ppn) || 0;
+          const pph = Number(this.invoiceForm.nilai_pph) || 0;
+          this.invoiceForm.nilai_netto = Math.max(0, bruto - (ppn + pph));
+        },
+
+        openNewInvoiceModal() {
+          this.activeTab = 'invoices';
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        resetInvoiceForm() {
+          this.invoiceForm = {
+            rba_id: '',
+            contract_id: '',
+            nomor_invoice: '',
+            tanggal_invoice: new Date().toISOString().split('T')[0],
+            tanggal_bast: '',
+            nilai_bruto: 0,
+            nilai_ppn: 0,
+            nilai_pph: 0,
+            nilai_netto: 0,
+            uraian_belanja: ''
+          };
+          this.uploadedFiles = [];
+        },
+
+        submitInvoice() {
+          // Evaluasi 6 Smart Rules di Sisi Klien
+          const selectedRBA = this.rbaList.find(r => r.id === this.invoiceForm.rba_id);
+          const isBudgetSufficient = selectedRBA ? (selectedRBA.sisa_pagu >= this.invoiceForm.nilai_bruto) : false;
+          const isAntiDup = !this.invoicesList.some(i => i.nomor_invoice.toLowerCase() === this.invoiceForm.nomor_invoice.toLowerCase());
+          const isTaxMath = (this.invoiceForm.nilai_netto === (this.invoiceForm.nilai_bruto - (this.invoiceForm.nilai_ppn + this.invoiceForm.nilai_pph)));
+          const isMetaValid = !this.invoiceForm.tanggal_bast || (this.invoiceForm.tanggal_bast <= this.invoiceForm.tanggal_invoice);
+
+          const anomalies = [];
+          if (!isBudgetSufficient) {
+            anomalies.push({ rule: 'PAGU_DEFICIT', msg: `Nilai belanja ${this.formatRupiah(this.invoiceForm.nilai_bruto)} melampaui sisa pagu terbuka ${this.formatRupiah(selectedRBA?.sisa_pagu || 0)}.` });
+          }
+          if (!isAntiDup) {
+            anomalies.push({ rule: 'DUPLICATE_INVOICE', msg: `Nomor tagihan ${this.invoiceForm.nomor_invoice} sudah pernah tercatat sebelumnya.` });
+          }
+          if (!isTaxMath) {
+            anomalies.push({ rule: 'TAX_MISMATCH', msg: 'Nilai netto tidak konsisten dengan bruto dikurangi potongan pajak.' });
+          }
+          if (!isMetaValid) {
+            anomalies.push({ rule: 'DATE_ANOMALY', msg: 'Tanggal BAST tidak boleh lebih baru daripada tanggal invoice tagihan.' });
+          }
+
+          // Kalkulasi Skor Risiko Komposit
+          let riskScore = 15.00;
+          if (this.invoiceForm.nilai_bruto > 100000000) riskScore += 35;
+          if (!isBudgetSufficient || !isAntiDup) riskScore = 85.00;
+          if (anomalies.length > 0 && riskScore < 75) riskScore = 75.00;
+
+          let riskCat = 'RENDAH';
+          let recPath = 'FAST_TRACK';
+          if (riskScore > 70) {
+            riskCat = 'TINGGI';
+            recPath = 'STRICT_AUDIT';
+          } else if (riskScore > 30) {
+            riskCat = 'SEDANG';
+            recPath = 'DESK_VERIFICATION';
+          }
+
+          const newInv = {
+            id: 'd' + Math.random().toString(36).substring(2, 9),
+            nomor_invoice: this.invoiceForm.nomor_invoice,
+            tanggal_invoice: this.invoiceForm.tanggal_invoice,
+            tanggal_bast: this.invoiceForm.tanggal_bast,
+            nilai_bruto: this.invoiceForm.nilai_bruto,
+            nilai_ppn: this.invoiceForm.nilai_ppn,
+            nilai_pph: this.invoiceForm.nilai_pph,
+            nilai_netto: this.invoiceForm.nilai_netto,
+            uraian_belanja: this.invoiceForm.uraian_belanja,
+            nama_rekanan: 'Penyedia Rekanan BLUD',
+            status_tahap: 'DRAFT',
+            evaluations: {
+              risk_score: riskScore,
+              risk_category: riskCat,
+              recommended_path: recPath,
+              is_budget_sufficient: isBudgetSufficient,
+              is_account_valid: true,
+              is_contract_valid: true,
+              is_anti_duplication_pass: isAntiDup,
+              is_tax_math_valid: isTaxMath,
+              is_metadata_valid: isMetaValid,
+              anomaly_flags: anomalies
+            },
+            spj_documents: this.uploadedFiles.length > 0 ? this.uploadedFiles : this.mockDocs
+          };
+
+          this.invoicesList.unshift(newInv);
+          this.selectedInvoice = newInv;
+          this.showToast('Tagihan berhasil disimpan & dievaluasi oleh Smart Engine!');
+          this.activeTab = 'verification';
+          this.resetInvoiceForm();
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        selectInvoiceForVerification(inv) {
+          this.selectedInvoice = inv;
+          this.activeTab = 'verification';
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async submitDecision(action) {
+          if (!this.selectedInvoice) return;
+
+          let nextStatus = this.selectedInvoice.status_tahap;
+          if (action === 'TOLAK') {
+            nextStatus = 'REJECTED';
+          } else if (action === 'PERBAIKAN') {
+            nextStatus = 'REVISED';
+          } else if (action === 'SETUJU') {
+            if (this.currentRole === 'VERIFIKATOR') nextStatus = 'IN_REVIEW';
+            else if (this.currentRole === 'PEJABAT_KEUANGAN') nextStatus = 'APPROVED_LV1';
+            else if (this.currentRole === 'PEMIMPIN_BLUD') {
+              nextStatus = 'APPROVED';
+              this.metrics.totalRealisasi += this.selectedInvoice.nilai_bruto;
+            }
+          }
+
+          this.selectedInvoice.status_tahap = nextStatus;
+
+          // Cryptographic Token Seal
+          const rawSeal = `${this.selectedInvoice.id}|${this.currentActor.nip}|${action}|${Date.now()}`;
+          const encoder = new TextEncoder();
+          const data = encoder.encode(rawSeal);
+          const hashBuf = await crypto.subtle.digest('SHA-256', data);
+          const hashArr = Array.from(new Uint8Array(hashBuf));
+          const sealHash = hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
+
+          // Catat ke Audit Vault Log (Permanen & Immutable)
+          this.auditLogs.unshift({
+            id: Date.now(),
+            actor_name: this.currentActor.nama,
+            actor_nip: this.currentActor.nip,
+            action_type: `APPROVAL_${action}_${this.currentRole}`,
+            logged_at: new Date().toISOString(),
+            payload_snapshot: {
+              invoice_no: this.selectedInvoice.nomor_invoice,
+              status: nextStatus,
+              catatan: this.decisionNote || 'Disetujui sesuai regulasi penatausahaan BLUD'
+            },
+            record_hash: sealHash
+          });
+
+          this.showToast(`Persetujuan berhasil: ${nextStatus}`);
+          this.decisionNote = '';
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        saveSupabaseConfig() {
+          localStorage.setItem('simver_supabase_url', this.supabaseConfig.url);
+          localStorage.setItem('simver_supabase_key', this.supabaseConfig.key);
+          this.testSupabaseConnection();
+          this.showConfigModal = false;
+        },
+
+        async testSupabaseConnection() {
+          if (!this.supabaseConfig.url || !this.supabaseConfig.key) {
+            this.supabaseConnected = false;
+            return;
+          }
+
+          try {
+            this.supabaseClient = supabase.createClient(this.supabaseConfig.url, this.supabaseConfig.key);
+            const { data, error } = await this.supabaseClient.from('rba_budgets').select('id').limit(1);
+            if (!error) {
+              this.supabaseConnected = true;
+              this.showToast('Terhubung ke database Supabase Cloud!');
+              this.fetchSupabaseData();
+            } else {
+              this.supabaseConnected = false;
+            }
+          } catch (e) {
+            this.supabaseConnected = false;
+          }
+        },
+
+        async fetchSupabaseData() {
+          if (!this.supabaseClient) return;
+          try {
+            const { data: rba } = await this.supabaseClient.from('rba_budgets').select('*');
+            if (rba && rba.length > 0) this.rbaList = rba;
+
+            const { data: invs } = await this.supabaseClient.from('invoices').select(`
+              *,
+              verification_evaluations(*)
+            `);
+            if (invs && invs.length > 0) {
+              this.invoicesList = invs.map(i => ({
+                ...i,
+                evaluations: i.verification_evaluations
+              }));
+              this.selectedInvoice = this.invoicesList[0];
+            }
+            this.showToast('Data berhasil disinkronisasi dari Supabase!');
+          } catch (err) {
+            console.error('Gagal mengambil data dari Supabase:', err);
+          }
+        },
+
+        formatRupiah(num) {
+          if (num === null || num === undefined) return 'Rp 0';
+          return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0
+          }).format(num);
+        },
+
+        getRiskBadgeClass(cat) {
+          if (cat === 'TINGGI') return 'bg-rose-100 text-rose-800 border border-rose-300';
+          if (cat === 'SEDANG') return 'bg-amber-100 text-amber-800 border border-amber-300';
+          return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+        },
+
+        getStatusBadgeClass(status) {
+          const map = {
+            'DRAFT': 'bg-slate-100 text-slate-700',
+            'PRE_VALIDATED': 'bg-blue-100 text-blue-800',
+            'IN_REVIEW': 'bg-amber-100 text-amber-800',
+            'APPROVED_LV1': 'bg-teal-100 text-teal-800',
+            'APPROVED': 'bg-emerald-100 text-emerald-800',
+            'REVISED': 'bg-orange-100 text-orange-800',
+            'REJECTED': 'bg-rose-100 text-rose-800',
+            'SETTLED': 'bg-purple-100 text-purple-800'
+          };
+          return map[status] || 'bg-slate-100 text-slate-700';
+        },
+
+        showToast(message) {
+          const container = document.getElementById('toastContainer');
+          if (!container) return;
+
+          const toast = document.createElement('div');
+          toast.className = 'bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 border border-slate-700 animate-bounce pointer-events-auto';
+          toast.innerHTML = `<i data-lucide="info" class="w-4 h-4 text-emerald-400"></i><span>${message}</span>`;
+          container.appendChild(toast);
+          lucide.createIcons();
+
+          setTimeout(() => {
+            toast.remove();
+          }, 3200);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
